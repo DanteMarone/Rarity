@@ -117,32 +117,88 @@ function Collections:ScanExistingItems(reason)
 	self:Debug("Scanning for existing items (" .. reason .. ")")
 	self.Profiling:StartTimer("Collections.ScanExistingItems")
 
-	-- Scans need to index by spellId, creatureId, achievementId, raceId, itemId (for toys), statisticId (which is a table; for stats)
-
 	local changed = false
 
-	-- Mounts (pre-7.0)
-	if C_MountJournal.GetMountInfo ~= nil then
-		-- Mounts (7.0+)
-		for id = 1, C_MountJournal.GetNumMounts() do
-			local creatureName, spellId, icon, active, isUsable, sourceType, isFavorite, isFactionSpecific, faction, hideOnChar, isCollected =
-				C_MountJournal.GetMountInfo(id)
-			local creatureDisplayID, descriptionText, sourceText, isSelfMount, mountType =
-				C_MountJournal.GetMountInfoExtra(id)
+	local scanQueue = {
+		function()
+			self:Debug("Scanning mounts...")
+			-- Mounts (pre-7.0)
+			if C_MountJournal.GetMountInfo ~= nil then
+				-- Mounts (7.0+)
+				for id = 1, C_MountJournal.GetNumMounts() do
+					local creatureName, spellId, icon, active, isUsable, sourceType, isFavorite, isFactionSpecific, faction, hideOnChar, isCollected =
+						C_MountJournal.GetMountInfo(id)
+					local creatureDisplayID, descriptionText, sourceText, isSelfMount, mountType =
+						C_MountJournal.GetMountInfoExtra(id)
 
-			Rarity.mount_sources[spellId] = sourceText
+					Rarity.mount_sources[spellId] = sourceText
 
-			if isCollected then
+					if isCollected then
+						for k, v in pairs(R.db.profile.groups) do
+							if type(v) == "table" then
+								for kk, vv in pairs(v) do
+									if type(vv) == "table" then
+										if vv.spellId and vv.spellId == spellId then
+											if not vv.known then
+												changed = true
+											end
+											vv.known = true
+										end
+										if vv.spellId and vv.spellId == spellId and not vv.repeatable then
+											if vv.enabled then
+												changed = true
+											end
+											vv.enabled = false
+											vv.found = true
+										end
+									end
+								end
+							end
+						end
+					end
+				end
+			else
+				for i, id in pairs(C_MountJournal.GetMountIDs()) do
+					local _, spellId, _, _, _, _, _, _, _, _, isCollected = C_MountJournal.GetMountInfoByID(id)
+					local _, _, sourceText = C_MountJournal.GetMountInfoExtraByID(id)
+
+					Rarity.mount_sources[spellId] = sourceText
+
+					if isCollected then
+						for k, v in pairs(R.db.profile.groups) do
+							if type(v) == "table" then
+								for kk, vv in pairs(v) do
+									if type(vv) == "table" then
+										if vv.spellId and vv.spellId == spellId then
+											if not vv.known then
+												changed = true
+											end
+											vv.known = true
+										end
+										if vv.spellId and vv.spellId == spellId and not vv.repeatable then
+											if vv.enabled then
+												changed = true
+											end
+											vv.enabled = false
+											vv.found = true
+										end
+									end
+								end
+							end
+						end
+					end
+				end
+			end
+		end,
+		function()
+			self:Debug("Scanning companions...")
+			-- Companions that this character learned
+			for id = 1, GetNumCompanions("CRITTER") or 0 do
+				local spellId = select(3, GetCompanionInfo("CRITTER", id))
 				for k, v in pairs(R.db.profile.groups) do
 					if type(v) == "table" then
 						for kk, vv in pairs(v) do
 							if type(vv) == "table" then
-								if vv.spellId and vv.spellId == spellId then
-									if not vv.known then
-										changed = true
-									end
-									vv.known = true
-								end
 								if vv.spellId and vv.spellId == spellId and not vv.repeatable then
 									if vv.enabled then
 										changed = true
@@ -155,147 +211,102 @@ function Collections:ScanExistingItems(reason)
 					end
 				end
 			end
-		end
-	else
-		for i, id in pairs(C_MountJournal.GetMountIDs()) do
-			local _, spellId, _, _, _, _, _, _, _, _, isCollected = C_MountJournal.GetMountInfoByID(id)
-			local _, _, sourceText = C_MountJournal.GetMountInfoExtraByID(id)
-
-			Rarity.mount_sources[spellId] = sourceText
-
-			if isCollected then
-				for k, v in pairs(R.db.profile.groups) do
-					if type(v) == "table" then
-						for kk, vv in pairs(v) do
-							if type(vv) == "table" then
-								if vv.spellId and vv.spellId == spellId then
-									if not vv.known then
-										changed = true
+		end,
+		function()
+			self:Debug("Scanning battle pets...")
+			-- Battle pets across your account
+			if C_PetJournal.SetFlagFilter ~= nil then -- Pre-7.0
+				C_PetJournal.SetFlagFilter(_G.LE_PET_JOURNAL_FLAG_COLLECTED, true)
+				C_PetJournal.SetFlagFilter(_G.LE_PET_JOURNAL_FLAG_FAVORITES, false)
+				C_PetJournal.SetFlagFilter(_G.LE_PET_JOURNAL_FLAG_NOT_COLLECTED, true)
+				C_PetJournal.AddAllPetTypesFilter()
+				C_PetJournal.AddAllPetSourcesFilter()
+			else -- 7.0+
+				C_PetJournal.SetFilterChecked(_G.LE_PET_JOURNAL_FILTER_COLLECTED, true)
+				C_PetJournal.SetFilterChecked(_G.LE_PET_JOURNAL_FILTER_NOT_COLLECTED, true)
+				C_PetJournal.SetAllPetTypesChecked(true)
+				C_PetJournal.SetAllPetSourcesChecked(true)
+			end
+			local total, numOwnedPets = C_PetJournal.GetNumPets()
+			for i = 1, total do
+				local petID, speciesID, owned, customName, level, favorite, isRevoked, speciesName, icon, petType, companionID, tooltip, description, isWild, canBattle, isTradeable, isUnique, obtainable =
+					C_PetJournal.GetPetInfoByIndex(i)
+				Rarity.pet_sources[companionID] = tooltip
+				if owned then
+					for k, v in pairs(R.db.profile.groups) do
+						if type(v) == "table" then
+							for kk, vv in pairs(v) do
+								if type(vv) == "table" then
+									if vv.creatureId and vv.creatureId == companionID then
+										if not vv.known then
+											changed = true
+										end
+										vv.known = true
 									end
-									vv.known = true
-								end
-								if vv.spellId and vv.spellId == spellId and not vv.repeatable then
-									if vv.enabled then
-										changed = true
+									if vv.creatureId and vv.creatureId == companionID and not vv.repeatable then
+										if vv.enabled then
+											changed = true
+										end
+										vv.enabled = false
+										vv.found = true
 									end
-									vv.enabled = false
-									vv.found = true
 								end
 							end
 						end
 					end
 				end
 			end
-		end
-	end
-
-	-- Companions that this character learned
-	for id = 1, GetNumCompanions("CRITTER") or 0 do
-		local spellId = select(3, GetCompanionInfo("CRITTER", id))
-		for k, v in pairs(R.db.profile.groups) do
-			if type(v) == "table" then
-				for kk, vv in pairs(v) do
-					if type(vv) == "table" then
-						if vv.spellId and vv.spellId == spellId and not vv.repeatable then
-							if vv.enabled then
-								changed = true
-							end
-							vv.enabled = false
-							vv.found = true
-						end
-					end
-				end
-			end
-		end
-	end
-
-	-- Battle pets across your account
-	if C_PetJournal.SetFlagFilter ~= nil then -- Pre-7.0
-		C_PetJournal.SetFlagFilter(_G.LE_PET_JOURNAL_FLAG_COLLECTED, true)
-		C_PetJournal.SetFlagFilter(_G.LE_PET_JOURNAL_FLAG_FAVORITES, false)
-		C_PetJournal.SetFlagFilter(_G.LE_PET_JOURNAL_FLAG_NOT_COLLECTED, true)
-		C_PetJournal.AddAllPetTypesFilter()
-		C_PetJournal.AddAllPetSourcesFilter()
-	else -- 7.0+
-		C_PetJournal.SetFilterChecked(_G.LE_PET_JOURNAL_FILTER_COLLECTED, true)
-		C_PetJournal.SetFilterChecked(_G.LE_PET_JOURNAL_FILTER_NOT_COLLECTED, true)
-		C_PetJournal.SetAllPetTypesChecked(true)
-		C_PetJournal.SetAllPetSourcesChecked(true)
-	end
-	local total, numOwnedPets = C_PetJournal.GetNumPets()
-	for i = 1, total do
-		local petID, speciesID, owned, customName, level, favorite, isRevoked, speciesName, icon, petType, companionID, tooltip, description, isWild, canBattle, isTradeable, isUnique, obtainable =
-			C_PetJournal.GetPetInfoByIndex(i)
-		Rarity.pet_sources[companionID] = tooltip
-		if owned then
+		end,
+		function()
+			self:Debug("Scanning achievements...")
+			-- Achievements
 			for k, v in pairs(R.db.profile.groups) do
 				if type(v) == "table" then
 					for kk, vv in pairs(v) do
 						if type(vv) == "table" then
-							if vv.creatureId and vv.creatureId == companionID then
-								if not vv.known then
-									changed = true
-								end
-								vv.known = true
-							end
-							if vv.creatureId and vv.creatureId == companionID and not vv.repeatable then
-								if vv.enabled then
-									changed = true
-								end
-								vv.enabled = false
-								vv.found = true
-							end
-						end
-					end
-				end
-			end
-		end
-	end
-
-	-- Achievements
-	for k, v in pairs(R.db.profile.groups) do
-		if type(v) == "table" then
-			for kk, vv in pairs(v) do
-				if type(vv) == "table" then
-					if vv.achievementId and tonumber(vv.achievementId) then
-						local IDNumber, Name, Points, Completed, Month, Day, Year, Description, Flags, Image, RewardText, isGuildAch =
-							GetAchievementInfo(vv.achievementId)
-						if Completed and not vv.repeatable then
-							if vv.enabled then
-								changed = true
-							end
-							vv.enabled = false
-							vv.found = true
-						end
-					end
-				end
-			end
-		end
-	end
-
-	-- Scan all archaeology races and set any item attempts to the number of solves for that race
-	-- (if we've never seen attempts for the race before)
-	local s = 0
-	for x = 1, GetNumArchaeologyRaces() do
-		local c = GetNumArtifactsByRace(x)
-		local a = 0
-		for y = 1, c do
-			local t = select(10, GetArtifactInfoByRace(x, y))
-			a = a + t
-			s = s + t
-		end
-
-		for k, v in pairs(self.db.profile.groups) do
-			if type(v) == "table" then
-				for kk, vv in pairs(v) do
-					if type(vv) == "table" then
-						if vv.enabled ~= false then
-							if vv.method == CONSTANTS.DETECTION_METHODS.ARCH and vv.raceId ~= nil then
-								if vv.raceId == x then
-									-- We've never seen any attempts for this race yet, so set our attempts to this character's current amount
-									if a > (vv.attempts or 0) then
+							if vv.achievementId and tonumber(vv.achievementId) then
+								local IDNumber, Name, Points, Completed, Month, Day, Year, Description, Flags, Image, RewardText, isGuildAch =
+									GetAchievementInfo(vv.achievementId)
+								if Completed and not vv.repeatable then
+									if vv.enabled then
 										changed = true
-										vv.attempts = a
+									end
+									vv.enabled = false
+									vv.found = true
+								end
+							end
+						end
+					end
+				end
+			end
+		end,
+		function()
+			self:Debug("Scanning archaeology...")
+			-- Scan all archaeology races and set any item attempts to the number of solves for that race
+			-- (if we've never seen attempts for the race before)
+			local s = 0
+			for x = 1, GetNumArchaeologyRaces() do
+				local c = GetNumArtifactsByRace(x)
+				local a = 0
+				for y = 1, c do
+					local t = select(10, GetArtifactInfoByRace(x, y))
+					a = a + t
+					s = s + t
+				end
+
+				for k, v in pairs(self.db.profile.groups) do
+					if type(v) == "table" then
+						for kk, vv in pairs(v) do
+							if type(vv) == "table" then
+								if vv.enabled ~= false then
+									if vv.method == CONSTANTS.DETECTION_METHODS.ARCH and vv.raceId ~= nil then
+										if vv.raceId == x then
+											-- We've never seen any attempts for this race yet, so set our attempts to this character's current amount
+											if a > (vv.attempts or 0) then
+												changed = true
+												vv.attempts = a
+											end
+										end
 									end
 								end
 							end
@@ -303,54 +314,76 @@ function Collections:ScanExistingItems(reason)
 					end
 				end
 			end
-		end
-	end
-
-	-- Scan all items for Obtained Quest IDs and mark completed if the quest is completed
-	for k, v in pairs(R.db.profile.groups) do
-		if type(v) == "table" then
-			for kk, vv in pairs(v) do
-				if type(vv) == "table" then
-					if vv.obtainedQuestId and tonumber(vv.obtainedQuestId) then
-						if IsQuestComplete(tonumber(vv.obtainedQuestId)) then
-							if vv.enabled then
-								changed = true
+		end,
+		function()
+			self:Debug("Scanning quests...")
+			-- Scan all items for Obtained Quest IDs and mark completed if the quest is completed
+			for k, v in pairs(R.db.profile.groups) do
+				if type(v) == "table" then
+					for kk, vv in pairs(v) do
+						if type(vv) == "table" then
+							if vv.obtainedQuestId and tonumber(vv.obtainedQuestId) then
+								if IsQuestComplete(tonumber(vv.obtainedQuestId)) then
+									if vv.enabled then
+										changed = true
+									end
+									vv.enabled = false
+									vv.found = true
+								end
 							end
-							vv.enabled = false
-							vv.found = true
 						end
 					end
 				end
 			end
+		end,
+		function()
+			self:Debug("Scanning statistics...")
+			self.Profiling:StartTimer("Collections.ScanStatistics")
+			self:ScanStatistics(reason)
+			self.Profiling:EndTimer("Collections.ScanStatistics")
+		end,
+		function()
+			self:Debug("Scanning toys...")
+			self.Profiling:StartTimer("Collections.ScanToys")
+			Rarity.Collections:ScanToys(reason)
+			self.Profiling:EndTimer("Collections.ScanToys")
+		end,
+		function()
+			self:Debug("Scanning transmog...")
+			self.Profiling:StartTimer("Collections.ScanTransmog")
+			Rarity.Collections:ScanTransmog(reason)
+			self.Profiling:EndTimer("Collections.ScanTransmog")
+		end,
+		function()
+			self:Debug("Scanning calendar...")
+			self.Profiling:StartTimer("Collections.ScanCalendar")
+			self:ScanCalendar(reason)
+			self.Profiling:EndTimer("Collections.ScanCalendar")
+		end,
+		function()
+			self:Debug("Scanning instance locks...")
+			self.Profiling:StartTimer("Collections.ScanInstanceLocks")
+			self:ScanInstanceLocks(reason)
+			self.Profiling:EndTimer("Collections.ScanInstanceLocks")
+		end,
+		function()
+			self.Profiling:EndTimer("Collections.ScanExistingItems")
+			if changed then
+				R.TooltipCache:ClearAll()
+			end
+		end
+	}
+
+	local function runNextScan(i)
+		if scanQueue[i] then
+			scanQueue[i]()
+			C_Timer.After(0.1, function()
+				runNextScan(i + 1)
+			end)
 		end
 	end
 
-	-- Other scans
-	self.Profiling:StartTimer("Collections.ScanStatistics")
-	self:ScanStatistics(reason)
-	self.Profiling:EndTimer("Collections.ScanStatistics")
-
-	self.Profiling:StartTimer("Collections.ScanToys")
-	Rarity.Collections:ScanToys(reason)
-	self.Profiling:EndTimer("Collections.ScanToys")
-
-	self.Profiling:StartTimer("Collections.ScanTransmog")
-	Rarity.Collections:ScanTransmog(reason)
-	self.Profiling:EndTimer("Collections.ScanTransmog")
-
-	self.Profiling:StartTimer("Collections.ScanCalendar")
-	self:ScanCalendar(reason)
-	self.Profiling:EndTimer("Collections.ScanCalendar")
-
-	self.Profiling:StartTimer("Collections.ScanInstanceLocks")
-	self:ScanInstanceLocks(reason)
-	self.Profiling:EndTimer("Collections.ScanInstanceLocks")
-
-	self.Profiling:EndTimer("Collections.ScanExistingItems")
-
-	if changed then
-		R.TooltipCache:ClearAll()
-	end
+	runNextScan(1)
 end
 
 -------------------------------------------------------------------------------------

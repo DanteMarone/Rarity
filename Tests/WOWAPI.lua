@@ -60,3 +60,21 @@ end
 _G.geterrorhandler = function()
 	return error
 end
+
+local C_Timer = {}
+function C_Timer.After(delay, callback)
+	print("[C_Timer.After] NYI", delay, callback)
+	-- For testing purposes, we can just call the callback immediately
+	callback()
+end
+
+_G.C_Timer = C_Timer
+
+local C_Runtime = {}
+function C_Runtime.RunDetailedTests(specFiles)
+	print("[C_Runtime.RunDetailedTests] NYI", specFiles)
+	-- For testing purposes, we can just return 0
+	return 0
+end
+
+_G.C_Runtime = C_Runtime
