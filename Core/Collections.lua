@@ -34,8 +34,7 @@ local GetArchaeologyRaceInfo = GetArchaeologyRaceInfo
 local GetActiveArtifactByRace = GetActiveArtifactByRace
 
 function Collections:ScanTransmog(reason)
-	self = Rarity
-	self:Debug("Scanning transmog (" .. (reason or "") .. ")")
+	R:Debug("Scanning transmog (" .. (reason or "") .. ")")
 
 	local changed = false
 	for k, v in pairs(R.db.profile.groups) do
@@ -68,13 +67,12 @@ function Collections:ScanToys(reason)
 		return
 	end
 
-	self = Rarity
-	self:Debug("Scanning toys (" .. (reason or "") .. ")")
+	R:Debug("Scanning toys (" .. (reason or "") .. ")")
 
 	-- Load the Collections add-on if needed
 	if not Rarity.toysScanned then
 		if not ToyBox_OnLoad then
-			self:Debug("Loading Blizzard_Collections addon so the ToyBox can be scanned")
+			R:Debug("Loading Blizzard_Collections addon so the ToyBox can be scanned")
 			UIParentLoadAddOn("Blizzard_Collections")
 		end
 	end
@@ -106,7 +104,6 @@ function Collections:ScanToys(reason)
 end
 
 function Collections:ScanExistingItems(reason)
-	self = Rarity
 	-- Don't allow this scan in combat; it takes too long and the script will receive a "script ran too long" error
 	-- Under normal conditions this shouldn't be called during combat, except during the 5-minute final init, or
 	-- if the user is messing around with Options in combat.
@@ -114,8 +111,8 @@ function Collections:ScanExistingItems(reason)
 		return
 	end
 
-	self:Debug("Scanning for existing items (" .. reason .. ")")
-	self.Profiling:StartTimer("Collections.ScanExistingItems")
+	R:Debug("Scanning for existing items (" .. reason .. ")")
+	R.Profiling:StartTimer("Collections.ScanExistingItems")
 
 	-- Scans need to index by spellId, creatureId, achievementId, raceId, itemId (for toys), statisticId (which is a table; for stats)
 
@@ -285,7 +282,7 @@ function Collections:ScanExistingItems(reason)
 			s = s + t
 		end
 
-		for k, v in pairs(self.db.profile.groups) do
+		for k, v in pairs(R.db.profile.groups) do
 			if type(v) == "table" then
 				for kk, vv in pairs(v) do
 					if type(vv) == "table" then
@@ -326,27 +323,27 @@ function Collections:ScanExistingItems(reason)
 	end
 
 	-- Other scans
-	self.Profiling:StartTimer("Collections.ScanStatistics")
+	R.Profiling:StartTimer("Collections.ScanStatistics")
 	self:ScanStatistics(reason)
-	self.Profiling:EndTimer("Collections.ScanStatistics")
+	R.Profiling:EndTimer("Collections.ScanStatistics")
 
-	self.Profiling:StartTimer("Collections.ScanToys")
+	R.Profiling:StartTimer("Collections.ScanToys")
 	Rarity.Collections:ScanToys(reason)
-	self.Profiling:EndTimer("Collections.ScanToys")
+	R.Profiling:EndTimer("Collections.ScanToys")
 
-	self.Profiling:StartTimer("Collections.ScanTransmog")
+	R.Profiling:StartTimer("Collections.ScanTransmog")
 	Rarity.Collections:ScanTransmog(reason)
-	self.Profiling:EndTimer("Collections.ScanTransmog")
+	R.Profiling:EndTimer("Collections.ScanTransmog")
 
-	self.Profiling:StartTimer("Collections.ScanCalendar")
+	R.Profiling:StartTimer("Collections.ScanCalendar")
 	self:ScanCalendar(reason)
-	self.Profiling:EndTimer("Collections.ScanCalendar")
+	R.Profiling:EndTimer("Collections.ScanCalendar")
 
-	self.Profiling:StartTimer("Collections.ScanInstanceLocks")
+	R.Profiling:StartTimer("Collections.ScanInstanceLocks")
 	self:ScanInstanceLocks(reason)
-	self.Profiling:EndTimer("Collections.ScanInstanceLocks")
+	R.Profiling:EndTimer("Collections.ScanInstanceLocks")
 
-	self.Profiling:EndTimer("Collections.ScanExistingItems")
+	R.Profiling:EndTimer("Collections.ScanExistingItems")
 
 	if changed then
 		R.TooltipCache:ClearAll()
