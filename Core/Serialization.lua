@@ -242,9 +242,15 @@ function R:Decompress(data)
 	return compress:Decompress(self:Decode(data))
 end
 
+-- Base64 character set
 local b = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
 
 function Serialization:DecodeBase64(encodedString)
+	if C_AddOns and C_AddOns.IsAddOnLoaded("Blizzard_Base64") then
+		return util.Base64Decode(encodedString)
+	end
+
+	-- Fallback to the old implementation
 	if not encodedString then
 		return nil
 	end
@@ -276,6 +282,11 @@ function Serialization:DecodeBase64(encodedString)
 end
 
 function Serialization:EncodeBase64(input)
+	if C_AddOns and C_AddOns.IsAddOnLoaded("Blizzard_Base64") then
+		return util.Base64Encode(input)
+	end
+
+	-- Fallback to the old implementation
 	return (
 		(input:gsub(".", function(x)
 			local r, byte = "", x:byte()

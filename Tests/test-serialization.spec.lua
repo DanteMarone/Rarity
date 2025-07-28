@@ -90,6 +90,13 @@ describe("Serialization", function()
 			local decodedItemString = Serialization:DecodeBase64(testImportString)
 			assertEquals(decodedItemString, ssl.base64(testImportString, false))
 		end)
+
+		if _G.C_AddOns.IsAddOnLoaded("Blizzard_Base64") then
+			it("should return the original input if a valid Base64-encoded string was passed (Blizzard)", function()
+				local decodedItemString = Serialization:DecodeBase64(testImportString)
+				assertEquals(decodedItemString, _G.util.Base64Decode(testImportString))
+			end)
+		end
 	end)
 
 	describe("EncodeBase64", function()
@@ -97,6 +104,13 @@ describe("Serialization", function()
 			local encodedString = Serialization:EncodeBase64("Hello world!")
 			assertEquals(encodedString, ssl.base64("Hello world!", true))
 		end)
+
+		if _G.C_AddOns.IsAddOnLoaded("Blizzard_Base64") then
+			it("should return the Base64-encoded representation of the input string (Blizzard)", function()
+				local encodedString = Serialization:EncodeBase64("Hello world!")
+				assertEquals(encodedString, _G.util.Base64Encode("Hello world!"))
+			end)
+		end
 	end)
 
 	describe("DeserializeItemString", function()
