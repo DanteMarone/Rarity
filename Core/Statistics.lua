@@ -27,5 +27,40 @@ function Statistics.GetRealDropPercentage(item)
 	return realDropChance, fractionalDropChance
 end
 
+--- Aggregates the number of attempts for each item across all characters and updates the database
+function Statistics.UpdateAccountWideStatistics()
+	local a = Rarity.db.profile.accountWideStatistics
+	if not a then
+		Rarity.db.profile.accountWideStatistics = {}
+		a = Rarity.db.profile.accountWideStatistics
+	end
+
+	-- Resets the collected data (it will be repopulated from all characters again, below)
+	wipe(a)
+
+	-- Now, iterate over all character profiles and collect the attempts
+	if RarityDB and RarityDB.profiles then
+		for charName, charData in pairs(RarityDB.profiles) do
+			if type(charData) == "table" and charData.profile and type(charData.profile.groups) == "table" then
+				-- Rarity:Print("Found character: " .. charName)
+				for groupName, groupData in pairs(charData.profile.groups) do
+					if type(groupData) == "table" then
+						for itemName, itemData in pairs(groupData) do
+							if
+								type(itemData) == "table" and type(itemData.attempts) == "number" and itemData.attempts > 0
+							then
+								if not a[itemName] then
+									a[itemName] = {}
+								end
+								a[itemName][charName] = itemData.attempts
+							end
+						end
+					end
+				end
+			end
+		end
+	end
+end
+
 Rarity.Statistics = Statistics
 return Statistics

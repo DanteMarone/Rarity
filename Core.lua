@@ -210,6 +210,7 @@ do
 		Rarity.GUI:UpdateBar()
 
 		Rarity.Serialization:ImportFromBunnyHunter()
+		Rarity.Statistics.UpdateAccountWideStatistics()
 
 		if R.Options_DoEnable then
 			R:Options_DoEnable()
