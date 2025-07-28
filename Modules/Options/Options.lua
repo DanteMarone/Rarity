@@ -1621,6 +1621,27 @@ function R:PrepareOptions()
 					},
 				},
 			},
+			performance = {
+				name = L["Performance"],
+				type = "group",
+				order = newOrder(),
+				inline = true,
+				args = {
+					skipValidation = {
+						type = "toggle",
+						order = newOrder(),
+						name = L["Skip AceConfig validation"],
+						width = "full",
+						desc = L["Skips the validation of the AceConfig options table at runtime, which can be slow if the table is large. This is considered safe because the table is static, and we're not changing it at runtime. This setting will only take effect after a reload."],
+						get = function()
+							return self.db.profile.skipValidation
+						end,
+						set = function(info, val)
+							self.db.profile.skipValidation = val
+						end,
+					},
+				},
+			},
 			cacheManagement = {
 				name = L["Cached Data"],
 				type = "group",

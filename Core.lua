@@ -153,18 +153,21 @@ do
 		-- However, players can only see the menu entry once AceConfig has registered it
 		-- Workaround: Provide a generator (function) that creates the UI only when needed
 		LibStub("AceConfig-3.0"):RegisterOptionsTable("Rarity", function()
-			return R:LazyLoadOptions("options")
-		end)
+			return R:GetOptions("options")
+		end, false)
 		R.optionsFrame = LibStub("AceConfigDialog-3.0"):AddToBlizOptions("Rarity", "Rarity")
 		R.profileOptions = LibStub("AceDBOptions-3.0"):GetOptionsTable(R.db)
 		LibStub("AceConfig-3.0"):RegisterOptionsTable("Rarity-Profiles", R.profileOptions)
 		R.profileFrame = LibStub("AceConfigDialog-3.0"):AddToBlizOptions("Rarity-Profiles", "Profiles", "Rarity")
 
 		LibStub("AceConfig-3.0"):RegisterOptionsTable("Rarity-Advanced", function()
-			return R:LazyLoadOptions("advancedSettings")
+			return R:GetOptions("advancedSettings")
 		end)
 		R.advancedSettingsFrame =
 			LibStub("AceConfigDialog-3.0"):AddToBlizOptions("Rarity-Advanced", "Advanced", "Rarity")
+		if self.db.profile.skipValidation == nil then
+			self.db.profile.skipValidation = true
+		end
 	end
 
 	function R:DoEnable()
@@ -368,7 +371,17 @@ local fallbackOptionsTable = {
 	},
 }
 
-function Rarity:LazyLoadOptions(which)
+function Rarity:GetOptions(which)
+	local options = self:CreateOptionsUI(which)
+	if R.db.profile.skipValidation then
+		-- Skip validation of the options table at runtime, which can be slow if the table is large
+		-- This is considered safe because the table is static, and we're not changing it at runtime
+		options.validate = false
+	end
+	return options
+end
+
+function Rarity:CreateOptionsUI(which)
 	local options = R[which]
 	if type(options) == "table" then
 		-- This UI tree was previously generated (fast path; upfront cost already paid)
@@ -393,7 +406,7 @@ function Rarity:TryShowOptionsUI()
 		return
 	end
 
-	Rarity:LazyLoadOptions()
+	Rarity:CreateOptionsUI()
 	Rarity.Profiling:StartTimer("RarityOptions: OpenToCategory")
 	Settings.OpenToCategory("Rarity")
 	Rarity.Profiling:EndTimer("RarityOptions: OpenToCategory")
