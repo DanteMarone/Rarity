@@ -29,6 +29,7 @@ L["Darkfuse Spy-Eye"] = true
 L["Gallagio Garbage"] = true
 L["Salvaged Goblin Gazillionaire's Flying Machine"] = true
 L["Show progress bar"] = true
+L["Show anchor"] = true
 L["Cyclonic Runekey"] = true
 L["Glittering Vault Shard"] = true
 L["Proper Parrot"] = true
