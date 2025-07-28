@@ -1,6 +1,9 @@
 local L
 L = LibStub("AceLocale-3.0"):NewLocale("Rarity", "enUS", true)
 
+L["Account-Wide Attempts"] = true
+L["Show Account-Wide Attempts"] = true
+
 -- L["AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"] = true
 L["Baa'lial Soulstone"] = true
 L["Tyrael's Charger"] = true

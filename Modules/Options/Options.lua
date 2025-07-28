@@ -364,6 +364,19 @@ function R:PrepareOptions()
 									Rarity.GUI:UpdateText()
 								end,
 							},
+							showAccountWideAttempts = {
+								type = "toggle",
+								order = newOrder(),
+								name = L["Show Account-Wide Attempts"],
+								desc = L["When on, the Account-Wide Attempts will be shown in the item details view."],
+								get = function()
+									return self.db.profile.showAccountWideAttempts
+								end,
+								set = function(info, val)
+									self.db.profile.showAccountWideAttempts = val
+									Rarity.GUI:UpdateText()
+								end,
+							},
 							takeScreenshot = {
 								type = "toggle",
 								order = newOrder(),
@@ -1908,6 +1921,22 @@ function R:CreateGroup(options, group, isUser)
 					order = newOrder(),
 					name = colorize(L["Total Attempts"] .. ": ", green) .. tostring(item.attempts or 0),
 					hidden = (item.lastAttempts or 0) == 0,
+				},
+				accountWideAttemptsDesc = {
+					type = "description",
+					order = newOrder(),
+					name = function()
+						local total = 0
+						if
+							Rarity.db.profile.accountWideStatistics and Rarity.db.profile.accountWideStatistics[item.name]
+						then
+							for charName, attemptCount in pairs(Rarity.db.profile.accountWideStatistics[item.name]) do
+								total = total + attemptCount
+							end
+						end
+						return colorize(L["Account-Wide Attempts"] .. ": ", green) .. tostring(total)
+					end,
+					hidden = not Rarity.db.profile.showAccountWideAttempts,
 				},
 				worldBossFactionless = {
 					type = "description",
